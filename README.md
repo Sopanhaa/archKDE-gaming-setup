@@ -18,22 +18,13 @@ A production-grade Arch Linux bootstrap for KDE Plasma gaming systems.
 ---
 
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/arch-extreme-gaming.git
+git clone https://github.com/sopanha-lay/arch-extreme-gaming.git
 
-# Enter the project directory
+# Make it executable
 cd arch-extreme-gaming
 
-# Make the installer executable
 chmod +x install.sh
-
-# Run the installer
 ./install.sh
-
-## Update
-
-```bash
-./update.sh
-```
 
 ---
 
