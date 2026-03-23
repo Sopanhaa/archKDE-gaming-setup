@@ -23,6 +23,7 @@ git clone https://github.com/sopanha-lay/arch-extreme-gaming.git
 # Make it executable
 cd arch-extreme-gaming
 
+# Run
 chmod +x install.sh
 ./install.sh
 
