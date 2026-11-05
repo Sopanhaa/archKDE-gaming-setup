@@ -1,3 +1,4 @@
-sudo systemctl enable sddm
-sudo systemctl enable bluetooth
-sudo systemctl enable libvirtd
+#!/usr/bin/env bash
+set -Eeuo pipefail
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec bash "$ROOT_DIR/install.sh" --modules 04 "$@"
