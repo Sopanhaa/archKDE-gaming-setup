@@ -43,7 +43,34 @@ valid_package_names() {
 }
 
 assert "detects NVIDIA and Intel hybrid graphics" contains_text "$(detect_gpu_vendors $'01:00.0 VGA compatible controller: NVIDIA Corporation (10de:25a9)\n00:02.0 VGA compatible controller: Intel Corporation (8086:46a6)')" "nvidia intel"
+assert "detects AMD graphics" contains_text "$(detect_gpu_vendors '03:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] (1002:73ff)')" "amd"
+assert "detects all supported vendors" contains_text "$(detect_gpu_vendors $'NVIDIA (10de:2504)\nAMD (1002:73ff)\nIntel (8086:46a6)')" "nvidia amd intel"
 assert "reports unknown for unsupported display hardware" contains_text "$(detect_gpu_vendors 'Virtual display adapter')" "unknown"
+assert "recognizes hybrid graphics" gpu_is_hybrid "nvidia intel"
+assert "finds a vendor in a hybrid vendor list" gpu_has_vendor nvidia "intel nvidia"
+assert "does not label a single GPU as hybrid" test "$(gpu_is_hybrid 'nvidia' && printf yes || printf no)" = "no"
+assert "formats GPU vendor labels" test "$(gpu_vendor_label nvidia intel)" = "NVIDIA, Intel"
+assert "parses comma-separated module numbers in dependency order" test "$(parse_module_selection '5,1,3')" = "01 03 05"
+assert "parses space-separated module numbers" test "$(parse_module_selection '03 05 06')" = "03 05 06"
+assert "expands module ranges" test "$(parse_module_selection '03-05')" = "03 04 05"
+assert "accepts the all keyword" test "$(parse_module_selection 'all')" = "01 02 03 04 05 06 07 08"
+
+if parse_module_selection "09" >/dev/null 2>&1; then
+    printf 'not ok - rejects out-of-range module numbers\n'
+    tests_failed=$((tests_failed + 1))
+else
+    printf 'ok - rejects out-of-range module numbers\n'
+    tests_run=$((tests_run + 1))
+fi
+
+if parse_module_selection "03,gpu" >/dev/null 2>&1; then
+    printf 'not ok - rejects non-numeric module selections\n'
+    tests_failed=$((tests_failed + 1))
+else
+    printf 'ok - rejects non-numeric module selections\n'
+    tests_run=$((tests_run + 1))
+fi
+
 assert "package configuration contains valid package identifiers" valid_package_names
 
 pacman() {
@@ -88,12 +115,38 @@ else
     tests_run=$((tests_run + 1))
 fi
 
+sudo() {
+    if [[ "${1:-}" == "-n" ]]; then
+        shift
+    fi
+    "$@"
+}
 printf 'managed\n' >"$tmp_dir/source"
 cp "$tmp_dir/source" "$tmp_dir/target"
 assert "managed configuration is idempotent when unchanged" ensure_managed_config "$tmp_dir/source" "$tmp_dir/target"
 printf 'user configuration\n' >"$tmp_dir/target"
 ensure_managed_config "$tmp_dir/source" "$tmp_dir/target" >/dev/null
 assert "existing conflicting configuration is left unchanged" grep -qx 'user configuration' "$tmp_dir/target"
+
+MANIFEST_FILE="$tmp_dir/rollback/manifest.txt"
+BACKUP_DIR="$tmp_dir/backups"
+printf 'managed\n' >"$tmp_dir/new-source"
+ensure_managed_config "$tmp_dir/new-source" "$tmp_dir/new-target" >/dev/null
+assert "new managed configuration is installed" test -f "$tmp_dir/new-target"
+assert "created configuration is tracked for rollback" grep -q "^created|$tmp_dir/new-target|" "$MANIFEST_FILE"
+
+printf 'user configuration\n' >"$tmp_dir/existing-target"
+ensure_managed_config "$tmp_dir/new-source" "$tmp_dir/existing-target" >/dev/null
+backup_exists() {
+    grep -qx 'user configuration' "$tmp_dir/existing-target" &&
+        find "$BACKUP_DIR" -type f -name existing-target | grep -q .
+}
+assert "conflicting configuration is backed up without overwrite" backup_exists
+
+DRY_RUN=1
+ensure_managed_config "$tmp_dir/new-source" "$tmp_dir/dry-target" >/dev/null
+assert "dry-run does not install managed configuration" test ! -e "$tmp_dir/dry-target"
+DRY_RUN=0
 
 printf '\n%d tests, %d failures\n' "$tests_run" "$tests_failed"
 ((tests_failed == 0))
