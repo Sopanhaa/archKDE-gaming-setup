@@ -114,6 +114,15 @@ Preview updates without changing anything:
 ./scripts/update.sh --dry-run
 ```
 
+Skip third-party AUR updates:
+
+```bash
+./scripts/update.sh --skip-aur
+```
+
+AUR helpers run code from third-party packages. Use `--skip-aur` if you do not
+want to update AUR packages.
+
 Show the project version:
 
 ```bash

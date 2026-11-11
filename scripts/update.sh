@@ -8,10 +8,11 @@ DRY_RUN=0
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/update.sh [--dry-run]
+Usage: ./scripts/update.sh [--dry-run] [--skip-aur]
 
 Options:
   --dry-run       Print planned commands without changing the system.
+  --skip-aur      Skip yay/paru AUR updates.
   --help          Show this help.
 
 Without --dry-run, this updates official packages, Flatpak applications,
@@ -19,20 +20,33 @@ optional AUR packages, and the project repository (fast-forward only).
 EOF
 }
 
+DRY_RUN=0
+SKIP_AUR=0
+
 while (($#)); do
     case "$1" in
         --dry-run) DRY_RUN=1 ;;
+        --skip-aur) SKIP_AUR=1 ;;
         --help|-h) usage; exit 0 ;;
         *) die "Unknown option: $1 (use --help)." ;;
     esac
     shift
 done
 
-init_logging
-export LOG_TEE=1
-export LOG_FILE
-exec > >(tee -a "$LOG_FILE") 2>&1
+if ((EUID == 0)); then
+    printf 'Run this command as a regular user, not root.\n' >&2
+    exit 1
+fi
 
+if ((DRY_RUN)); then
+    export LOG_FILE="/dev/null"
+    export LOG_TEE=0
+else
+    init_logging
+    export LOG_TEE=1
+    export LOG_FILE
+    exec > >(tee -a "$LOG_FILE") 2>&1
+fi
 require_non_root
 check_arch
 check_internet
@@ -59,7 +73,9 @@ else
     log INFO "Flatpak is not installed; skipping Flatpak updates."
 fi
 
-if command -v yay >/dev/null 2>&1; then
+if ((SKIP_AUR)); then
+    log INFO "Skipping AUR updates (--skip-aur)."
+elif command -v yay >/dev/null 2>&1; then
     log INFO "Updating AUR packages with yay (as the current user)."
     run yay -Sua
 elif command -v paru >/dev/null 2>&1; then

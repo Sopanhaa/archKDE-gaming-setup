@@ -22,7 +22,17 @@ for arg in "$@"; do
     esac
 done
 
-init_logging
+if ((EUID == 0)); then
+    printf 'Run this command as a regular user, not root.\n' >&2
+    exit 1
+fi
+
+if ((DRY_RUN)); then
+    export LOG_FILE="/dev/null"
+    export LOG_TEE=0
+else
+    init_logging
+fi
 require_non_root
 check_arch
 
@@ -46,7 +56,15 @@ while IFS='|' read -r kind target detail source; do
     [[ -n "${kind:-}" ]] || continue
     case "$kind" in
         created)
-            if [[ ! -e "$target" ]]; then
+            if ! rollback_target_allowed "$target"; then
+                kept+=("$target")
+                log WARN "Refusing to remove a path outside the project scope: $target"
+                continue
+            fi
+            if [[ -L "$target" ]]; then
+                kept+=("$target")
+                log WARN "Refusing to remove a symbolic link: $target"
+            elif [[ ! -e "$target" ]]; then
                 already_absent+=("$target")
                 remove_entries["$target"]=1
             elif [[ -n "$detail" && "$(file_sha256 "$target")" == "$detail" ]]; then
@@ -67,7 +85,7 @@ if ((${#already_absent[@]})); then
     log INFO "Already absent (cleaning tracking only): ${already_absent[*]}"
 fi
 if ((${#kept[@]})); then
-    log WARN "These tracked files were changed after installation and will be kept: ${kept[*]}"
+    log WARN "These tracked paths will be kept (modified, symlinked, or outside project scope): ${kept[*]}"
 fi
 if ((${#backups[@]})); then
     log INFO "Backups created by this project are retained, not restored:"

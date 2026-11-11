@@ -99,11 +99,36 @@ require_non_root() {
     ((EUID != 0)) || die "Run this command as a regular user, not root."
 }
 
+path_within_state() {
+    local path="$1"
+    local state_real path_real
+    state_real="$(realpath -m -- "$STATE_DIR" 2>/dev/null)" || return 1
+    path_real="$(realpath -m -- "$path" 2>/dev/null)" || return 1
+    [[ "$path_real" == "$state_real" || "$path_real" == "$state_real"/* ]]
+}
+
+rollback_target_allowed() {
+    local target="${1:-}"
+    local canonical
+    canonical="$(realpath -m -- "$target" 2>/dev/null)" || return 1
+    [[ "$canonical" == "$target" ]] || return 1
+    [[ "$target" == /etc/modprobe.d/arch-extreme-gaming-* ||
+        "$target" == /etc/modprobe.d/archkde-play-* ]]
+}
+
 init_logging() {
-    mkdir -p -- "$STATE_DIR" "$(dirname -- "$LOG_FILE")"
-    chmod 700 -- "$STATE_DIR" "$(dirname -- "$LOG_FILE")" 2>/dev/null || true
+    local log_dir
+    log_dir="$(dirname -- "$LOG_FILE")"
+    mkdir -p -- "$STATE_DIR"
+    chmod 700 -- "$STATE_DIR" 2>/dev/null || true
+    mkdir -p -- "$log_dir"
+    if path_within_state "$log_dir"; then
+        chmod 700 -- "$log_dir" 2>/dev/null || true
+    fi
     touch "$LOG_FILE"
-    chmod 600 -- "$LOG_FILE" 2>/dev/null || true
+    if path_within_state "$LOG_FILE"; then
+        chmod 600 -- "$LOG_FILE" 2>/dev/null || true
+    fi
 }
 
 run() {
@@ -399,11 +424,17 @@ record_change() {
     local target="$2"
     local detail="${3:--}"
     local source="${4:--}"
+    local manifest_dir
     ((DRY_RUN)) && return 0
-    mkdir -p -- "$(dirname -- "$MANIFEST_FILE")"
-    chmod 700 -- "$(dirname -- "$MANIFEST_FILE")" 2>/dev/null || true
+    manifest_dir="$(dirname -- "$MANIFEST_FILE")"
+    mkdir -p -- "$manifest_dir"
+    if path_within_state "$manifest_dir"; then
+        chmod 700 -- "$manifest_dir" 2>/dev/null || true
+    fi
     printf '%s|%s|%s|%s\n' "$kind" "$target" "$detail" "$source" >>"$MANIFEST_FILE"
-    chmod 600 -- "$MANIFEST_FILE" 2>/dev/null || true
+    if path_within_state "$MANIFEST_FILE"; then
+        chmod 600 -- "$MANIFEST_FILE" 2>/dev/null || true
+    fi
 }
 
 file_sha256() {
@@ -430,7 +461,9 @@ backup_file() {
         return 0
     fi
     mkdir -p -- "$BACKUP_DIR/$stamp"
-    chmod 700 -- "$BACKUP_DIR" "$BACKUP_DIR/$stamp" 2>/dev/null || true
+    if path_within_state "$BACKUP_DIR"; then
+        chmod 700 -- "$BACKUP_DIR" "$BACKUP_DIR/$stamp" 2>/dev/null || true
+    fi
     # -n avoids an unexpected password prompt in non-interactive runs; the
     # installer authenticates sudo before any module starts, so this succeeds
     # there without prompting.
@@ -439,7 +472,9 @@ backup_file() {
         return 1
     fi
     sudo chown "$(id -u):$(id -g)" -- "$backup" 2>/dev/null || true
-    sudo chmod 600 -- "$backup" 2>/dev/null || true
+    if path_within_state "$backup"; then
+        sudo chmod 600 -- "$backup" 2>/dev/null || true
+    fi
     record_change "backup" "$target" "$backup" "-"
     log INFO "Backed up $target to $backup"
 }

@@ -93,10 +93,22 @@ if ((SELECTION_SET)) && [[ -z "${SELECTION//[[:space:]]/}" ]]; then
     die "--modules requires at least one module number."
 fi
 
-init_logging
-export LOG_FILE
-export LOG_TEE=1
-exec > >(tee -a "$LOG_FILE") 2>&1
+# Check this before creating any log or state files, so running with sudo does
+# not leave root-owned files behind.
+if ((EUID == 0)); then
+    printf 'Run this installer as a regular user, not root.\n' >&2
+    exit 1
+fi
+
+if ((DRY_RUN || CHECK_ONLY)); then
+    export LOG_FILE="/dev/null"
+    export LOG_TEE=0
+else
+    init_logging
+    export LOG_FILE
+    export LOG_TEE=1
+    exec > >(tee -a "$LOG_FILE") 2>&1
+fi
 
 on_error() {
     local status="$1"
@@ -111,7 +123,11 @@ on_error() {
         log ERROR "While running module $CURRENT_MODULE: $CURRENT_MODULE_LABEL"
     fi
     log ERROR "No changes were rolled back automatically."
-    log ERROR "Read the full log here: $LOG_FILE"
+    if ((DRY_RUN || CHECK_ONLY)); then
+        log ERROR "Logging is disabled in dry-run/check mode."
+    else
+        log ERROR "Read the full log here: $LOG_FILE"
+    fi
     log ERROR "Review project-managed changes with: ./scripts/rollback.sh --dry-run"
     log ERROR "Fix the problem above, then rerun the same command. Completed modules are safe to rerun."
     exit "$status"
@@ -122,7 +138,11 @@ on_interrupt() {
     trap - INT TERM
     printf '\n'
     log WARN "Installation interrupted ($signal). No automatic rollback was performed."
-    log WARN "Review the log before rerunning: $LOG_FILE"
+    if ((DRY_RUN || CHECK_ONLY)); then
+        log WARN "Logging is disabled in dry-run/check mode."
+    else
+        log WARN "Review the log before rerunning: $LOG_FILE"
+    fi
     exit 130
 }
 
@@ -204,7 +224,11 @@ choose_modules() {
 }
 
 section "Arch KDE Gaming Setup"
-log INFO "Log file: $LOG_FILE"
+if ((DRY_RUN || CHECK_ONLY)); then
+    log WARN "Log file: not written (dry-run/check mode)."
+else
+    log INFO "Log file: $LOG_FILE"
+fi
 
 if ! run_preflight_checks; then
     exit 1
@@ -284,7 +308,11 @@ if ((DRY_RUN)); then
 else
     printf '  Mode: installation\n'
 fi
-printf '  Log file: %s\n' "$LOG_FILE"
+if ((DRY_RUN)); then
+    printf '  Log file: not written (dry run)\n'
+else
+    printf '  Log file: %s\n' "$LOG_FILE"
+fi
 if ((!DRY_RUN)); then
     printf '  Tracked configuration changes: %s\n' "$(tracked_change_count)"
     printf '  Review rollback with: ./scripts/rollback.sh --dry-run\n'

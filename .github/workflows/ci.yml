@@ -9,38 +9,31 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install ShellCheck
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends shellcheck
-
-      - name: Run lint and tests
-        run: bash scripts/lint.sh
-
   arch-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Lint and dry-run on Arch Linux
         run: |
           docker run --rm \
             -v "$PWD:/host:ro" \
-            archlinux:base-devel \
+            archlinux@sha256:fa2d4ce3310ddd90a4208e5168be8ad367da5129af1245f38fd2d803bcbe3239 \
             bash -lc '
               set -euo pipefail
               pacman -Syu --noconfirm --needed sudo shellcheck curl git >/dev/null
               useradd -m -s /bin/bash tester
-              echo "tester ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/tester
-              chmod 440 /etc/sudoers.d/tester
-              cp -a /host /work
+              mkdir -p /work
+              cp -a /host/. /work/
+              rm -rf /work/.git
               chown -R tester:tester /work
               su tester -c "cd /work && bash scripts/lint.sh"
               su tester -c "cd /work && ./install.sh --dry-run --full --no-color"

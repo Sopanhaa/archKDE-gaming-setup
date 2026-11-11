@@ -134,6 +134,17 @@ quiet_hides_info_but_keeps_warnings() {
 assert "installer reports its version" installer_version_works
 assert "installer lists all modules" installer_lists_modules
 assert "quiet mode hides informational output" quiet_hides_info_but_keeps_warnings
+assert "rollback allowlist accepts managed modprobe configuration" rollback_target_allowed /etc/modprobe.d/arch-extreme-gaming-nvidia.conf
+assert_failure "rollback allowlist rejects arbitrary files" rollback_target_allowed /etc/passwd
+assert_failure "rollback allowlist rejects path traversal" rollback_target_allowed /etc/modprobe.d/archkde-play-../../passwd
+
+dry_run_creates_no_state() {
+    local state="$tmp_dir/dry-state"
+    XDG_STATE_HOME="$state" LOG_FILE="$state/log" \
+        bash "$ROOT_DIR/install.sh" --dry-run --full --no-color >/dev/null 2>&1 || true
+    [[ ! -e "$state" ]]
+}
+assert "dry-run does not create state files" dry_run_creates_no_state
 
 pacman() {
     case "$*" in
