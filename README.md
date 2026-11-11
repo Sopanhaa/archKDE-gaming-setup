@@ -20,9 +20,7 @@ One command:
 git clone https://github.com/Sopanhaa/archKDE-play.git && cd archKDE-play && ./install.sh --full
 ```
 
-It prints the plan and asks `Proceed with installation? [y/N]`. Enter `y` to continue; anything else cancels without changes.
-
-Prefer to look first? Run `./install.sh --dry-run --full` (preview, no changes) or `./install.sh` (pick modules from a menu).
+It prints the plan and asks `Proceed with installation? [y/N]` — enter `y` to continue, anything else cancels. To look first, use `./install.sh --dry-run --full` (preview) or `./install.sh` (pick modules).
 
 ## Modules
 
@@ -65,20 +63,20 @@ AUR helpers run third-party code — use `--skip-aur` if you prefer to avoid tha
 
 ## GPU support
 
-The GPU module detects your hardware automatically.
+Detected automatically:
 
-- **NVIDIA** — `nvidia-open-dkms` (or `nvidia-dkms` as fallback) and utilities; 32-bit libraries need multilib.
-- **AMD** — Mesa, `vulkan-radeon`, and video decode support.
-- **Intel** — `vulkan-intel` and `intel-media-driver`.
-- **Hybrid laptops** — drivers for each vendor; use per-app GPU options or `prime-run`.
+- **NVIDIA** — `nvidia-open-dkms` (fallback `nvidia-dkms`) and utilities; 32-bit libs need multilib.
+- **AMD** — Mesa, `vulkan-radeon`, video decode.
+- **Intel** — `vulkan-intel`, `intel-media-driver`.
+- **Hybrid** — drivers for each vendor; use per-app GPU options or `prime-run`.
 
-It never forces PRIME settings, changes GPU power settings, or disables the integrated GPU.
+Never forces PRIME, changes GPU power settings, or disables the integrated GPU.
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Install fails | Read the log in `~/.local/state/archkde-play/logs/`, fix the issue, rerun the failed module e.g. `./install.sh --modules 03`. Completed modules are safe to rerun; nothing is rolled back automatically. |
+| Install fails | Read `~/.local/state/archkde-play/logs/`, fix the issue, rerun e.g. `./install.sh --modules 03`. Completed modules are safe to rerun. |
 | NVIDIA driver issues | Sign modules if Secure Boot is on, check with `dkms status`. Pre-Turing GPUs need `nvidia-dkms`, not `nvidia-open-dkms`. |
 | Steam not working | Enable `[multilib]` in `/etc/pacman.conf`, run `sudo pacman -Syu`, then `./install.sh --modules 05`. |
 | Vulkan issues | `sudo pacman -S vulkan-tools && vulkaninfo --summary`. Ensure `vulkan-radeon`, `vulkan-intel`, or `nvidia-utils` is installed. |
@@ -98,7 +96,7 @@ bash tests/test-install.sh
 
 ## Contributing
 
-See `CONTRIBUTING.md` for setup and style. Report security issues privately via `SECURITY.md`. Participation follows `CODE_OF_CONDUCT.md`.
+See `CONTRIBUTING.md` (setup, style, PRs), `SECURITY.md` (private reports), and `CODE_OF_CONDUCT.md`.
 
 ## License
 
