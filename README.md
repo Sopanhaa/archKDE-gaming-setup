@@ -178,10 +178,6 @@ archKDE-play/
 ├── CONTRIBUTING.md
 ├── SECURITY.md
 ├── CODE_OF_CONDUCT.md
-├── .github/
-│   ├── ISSUE_TEMPLATE/
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── workflows/ci.yml
 ├── drivers.sh
 ├── performance.sh
 ├── proton+tool.sh
@@ -262,14 +258,18 @@ Rollback does not remove packages, undo upgrades, or revert driver changes.
 
 ## Development checks
 
-Run the same basic checks used by CI:
+Run these checks before opening a pull request:
 
 ```bash
 bash scripts/lint.sh
 bash tests/test-install.sh
 ```
 
-GitHub Actions runs the linter and a full dry-run inside a pinned Arch Linux container.
+You can also verify a full installer run without changing your system:
+
+```bash
+./install.sh --dry-run --full
+```
 
 ## Contributing
 

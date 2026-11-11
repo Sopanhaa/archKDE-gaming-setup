@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Security report
-    url: https://github.com/Sopanhaa/archKDE-play/security/advisories/new
-    about: Report vulnerabilities privately. Do not open a public issue.
-  - name: Documentation
-    url: https://github.com/Sopanhaa/archKDE-play#readme
-    about: Read the installation and troubleshooting guide first.
