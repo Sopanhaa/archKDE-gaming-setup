@@ -56,21 +56,12 @@ Install all modules with `--full`, or pick some:
 | Preview updates | `./scripts/update.sh --dry-run` |
 | Skip third-party AUR updates | `./scripts/update.sh --skip-aur` |
 | Undo project config files | `./scripts/rollback.sh` |
-| Show version | `./install.sh --version` |
-| List modules | `./install.sh --list-modules` |
 
 AUR helpers run third-party code — use `--skip-aur` if you prefer to avoid that.
 
 ## GPU support
 
-Detected automatically:
-
-- **NVIDIA** — `nvidia-open-dkms` (fallback `nvidia-dkms`) and utilities; 32-bit libs need multilib.
-- **AMD** — Mesa, `vulkan-radeon`, video decode.
-- **Intel** — `vulkan-intel`, `intel-media-driver`.
-- **Hybrid** — drivers for each vendor; use per-app GPU options or `prime-run`.
-
-Never forces PRIME, changes GPU power settings, or disables the integrated GPU.
+GPUs are detected automatically: **NVIDIA** gets `nvidia-open-dkms` (or `nvidia-dkms`), **AMD** gets Mesa and `vulkan-radeon`, **Intel** gets `vulkan-intel`, and **hybrid laptops** get drivers for every vendor (`prime-run` works). The installer never forces PRIME, changes GPU power settings, or disables the integrated GPU.
 
 ## Troubleshooting
 
@@ -83,16 +74,6 @@ Never forces PRIME, changes GPU power settings, or disables the integrated GPU.
 | Packages skipped | Refresh first: `sudo pacman -Syu`, then rerun the module. |
 
 `./scripts/rollback.sh --dry-run` previews removing config files this project created. Rollback does not remove packages or undo driver changes.
-
-## Development
-
-Before opening a pull request, run:
-
-```bash
-bash scripts/lint.sh
-bash tests/test-install.sh
-./install.sh --dry-run --full
-```
 
 ## Contributing
 
