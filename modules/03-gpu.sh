@@ -6,7 +6,8 @@ source "$ROOT_DIR/lib/common.sh"
 
 GPU_INFO="$(detect_system_gpu_info)"
 GPU_VENDORS="$(detect_gpu_vendors "$GPU_INFO")"
-GPU_LABEL="$(gpu_vendor_label $GPU_VENDORS)"
+mapfile -t GPU_VENDOR_LIST <<<"$GPU_VENDORS"
+GPU_LABEL="$(gpu_vendor_label "${GPU_VENDOR_LIST[@]}")"
 HYBRID=0
 
 if gpu_is_hybrid "$GPU_VENDORS"; then
@@ -56,6 +57,9 @@ if gpu_has_vendor nvidia "$GPU_VENDORS"; then
     elif package_installed nvidia; then
         nvidia_module_package=nvidia
         log INFO "Keeping the already-installed NVIDIA driver (nvidia); it will not be replaced automatically."
+        if package_installed linux-zen; then
+            log WARN "The nvidia package is built for the linux kernel. If you boot linux-zen, install nvidia-dkms instead so a matching module is available."
+        fi
     elif package_available nvidia-open-dkms; then
         nvidia_module_package=nvidia-open-dkms
         log INFO "Selected the open NVIDIA kernel module (nvidia-open-dkms)."

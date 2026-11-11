@@ -8,17 +8,23 @@ The installer is careful with your system. It keeps your current kernel as a fal
 
 - Arch Linux (64-bit)
 - An internet connection
+- `git` to clone the repository
 - A regular user account with `sudo` access
-- At least 10 GB of free disk space
+- At least 10 GB of free disk space (5 GiB is the hard minimum)
 - The `[multilib]` repository enabled for Steam and 32-bit games
+
+If Secure Boot is enabled, NVIDIA and kernel modules must be signed before they
+can load. This project does not sign modules or change Secure Boot settings. It
+also does not edit bootloader entries; check your boot menu after installing the
+Zen kernel.
 
 ## Installation
 
 ### Step 1: Clone the repository
 
 ```bash
-git clone https://github.com/Sopanhaa/archKDE-gaming-setup.git
-cd archKDE-gaming-setup
+git clone https://github.com/Sopanhaa/archKDE-play.git
+cd archKDE-play
 ```
 
 ### Step 2: Check the system
@@ -108,9 +114,27 @@ Preview updates without changing anything:
 ./scripts/update.sh --dry-run
 ```
 
+Show the project version:
+
+```bash
+./install.sh --version
+```
+
+List module numbers and descriptions:
+
+```bash
+./install.sh --list-modules
+```
+
+Reduce progress output while still keeping warnings, errors, and the log:
+
+```bash
+./install.sh --quiet --full
+```
+
 The helper scripts `drivers.sh`, `Zen-kernel.sh`, `services.sh`, `proton+tool.sh`, and `performance.sh` run a single module and pass their options to `install.sh`.
 
-Logs are written to `~/.local/state/arch-extreme-gaming/logs/`.
+Logs are written to `~/.local/state/archkde-play/logs/`. Existing installs that used the old project name keep their previous state directory.
 
 ## GPU Support
 
@@ -126,10 +150,11 @@ The installer does not force PRIME settings, change GPU power settings, or disab
 ## Project Structure
 
 ```text
-archKDE-gaming-setup/
+archKDE-play/
 ├── install.sh
 ├── lib/
 │   ├── common.sh
+│   ├── modules.sh
 │   └── preflight.sh
 ├── config/
 ├── modules/
@@ -148,7 +173,7 @@ archKDE-gaming-setup/
 
 **Installation fails**
 
-Read the last lines of the log in `~/.local/state/arch-extreme-gaming/logs/`, fix the reported problem, and rerun the suggested command, for example:
+Read the last lines of the log in `~/.local/state/archkde-play/logs/` (or the old `arch-extreme-gaming` directory for existing installs), fix the reported problem, and rerun the suggested command, for example:
 
 ```bash
 ./install.sh --modules 03
@@ -186,6 +211,15 @@ vulkaninfo --summary
 
 Make sure the Vulkan package for your GPU is installed: `vulkan-radeon`, `vulkan-intel`, or `nvidia-utils`.
 
+**Packages are skipped as unavailable**
+
+Refresh the package database and system packages, then retry:
+
+```bash
+sudo pacman -Syu
+./install.sh --modules 01
+```
+
 **Missing multilib repository**
 
 Open `/etc/pacman.conf`, uncomment the `[multilib]` section, then refresh the package database:
@@ -204,6 +238,12 @@ Preview and remove only the configuration files created by this project:
 ```
 
 Rollback does not remove packages, undo upgrades, or revert driver changes.
+
+## Contributing
+
+See `CONTRIBUTING.md` for development setup, code style, and pull request
+guidance. Report security problems privately using `SECURITY.md`. Participation
+is covered by `CODE_OF_CONDUCT.md`.
 
 ## License
 

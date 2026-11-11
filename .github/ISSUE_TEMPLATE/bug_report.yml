@@ -1,0 +1,59 @@
+name: Bug report
+description: Report a problem with the installer or one of its modules
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please remove usernames, serial numbers,
+        and other private data from logs before posting. For security issues,
+        use SECURITY.md instead of this form.
+  - type: input
+    id: arch-version
+    attributes:
+      label: Arch Linux and kernel version
+      description: Output of `uname -r` and your Arch ISO or install date
+      placeholder: "Example: 6.12.1-zen1-1-zen, installed 2026-01"
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and graphics setup
+      description: GPU model and whether the system is hybrid
+      placeholder: "Example: NVIDIA RTX 3060 + Intel UHD, hybrid laptop"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run ./install.sh --check
+        2. Run ./install.sh --modules 03
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste the last lines of the log from ~/.local/state/archkde-play/logs/
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: health-check
+    attributes:
+      label: Health check output
+      description: Output of ./scripts/health-check.sh, if available
+      render: text
+    validations:
+      required: false

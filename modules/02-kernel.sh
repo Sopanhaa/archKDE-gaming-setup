@@ -30,13 +30,7 @@ else
     log WARN "Bootloader not identified; verify that it discovers the linux-zen kernel."
 fi
 
-secure_boot_enabled=0
-if command -v mokutil >/dev/null 2>&1 && mokutil --sb-state 2>/dev/null | grep -qi enabled; then
-    secure_boot_enabled=1
-elif grep -Eqi 'Secure Boot:[[:space:]]*enabled' <<<"$boot_status"; then
-    secure_boot_enabled=1
-fi
-if ((secure_boot_enabled)); then
+if secure_boot_enabled; then
     log WARN "Secure Boot is enabled; unsigned kernel modules may not load unless your signing setup supports them."
 fi
 

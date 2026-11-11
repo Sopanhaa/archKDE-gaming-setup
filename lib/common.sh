@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 
 ROOT_DIR="${ROOT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
-STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/arch-extreme-gaming"
+STATE_ROOT="${XDG_STATE_HOME:-${HOME}/.local/state}"
+STATE_DIR="${STATE_ROOT}/archkde-play"
+LEGACY_STATE_DIR="${STATE_ROOT}/arch-extreme-gaming"
+# Keep using an existing legacy state directory so an in-progress install does
+# not lose its logs or rollback manifest after the project rename.
+if [[ ! -d "$STATE_DIR" && -d "$LEGACY_STATE_DIR" ]]; then
+    STATE_DIR="$LEGACY_STATE_DIR"
+fi
 LOG_FILE="${LOG_FILE:-$STATE_DIR/logs/setup-$(date +%Y%m%d).log}"
 MANIFEST_FILE="${MANIFEST_FILE:-$STATE_DIR/rollback/manifest.txt}"
 BACKUP_DIR="${BACKUP_DIR:-$STATE_DIR/backups}"
 DRY_RUN="${DRY_RUN:-0}"
 LOG_TEE="${LOG_TEE:-0}"
+SETUP_QUIET="${SETUP_QUIET:-0}"
 
-<<<<<<< HEAD
 # Colour is only used on a real terminal. install.sh sets SETUP_FORCE_COLOR
 # before it redirects output through tee so interactive output stays readable.
 if [[ -z "${NO_COLOR:-}" && "${TERM:-dumb}" != "dumb" ]] &&
@@ -31,81 +38,17 @@ else
     C_BLUE=""
     C_CYAN=""
 fi
-=======
-# Module registry shared by install.sh, tests, and standalone scripts.
-# Format: <number>:<slug>:<description> in dependency order.
-MODULE_SPECS=(
-    "01:system:Base system updates and tools"
-    "02:kernel:Zen kernel and fallback kernel"
-    "03:gpu:GPU drivers and Vulkan"
-    "04:kde:KDE Plasma, display manager, network, audio"
-    "05:gaming:Gaming tools"
-    "06:flatpak:Flatpak and Flathub"
-    "07:performance:Conservative performance setup"
-    "08:virtualization:QEMU/KVM and Virt-Manager"
-)
-
-all_module_numbers() {
-    local item number result=""
-    for item in "${MODULE_SPECS[@]}"; do
-        IFS=: read -r number _ <<<"$item"
-        result+="${result:+ }$number"
-    done
-    printf '%s\n' "$result"
-}
-
-module_known() {
-    local candidate="$1" item number
-    for item in "${MODULE_SPECS[@]}"; do
-        IFS=: read -r number _ <<<"$item"
-        [[ "$number" == "$candidate" ]] && return 0
-    done
-    return 1
-}
-
-# Accepts "03,05,06" (or space-separated) and prints a deduplicated list in
-# the order the user supplied. Fails for empty or unknown module numbers.
-normalize_module_selection() {
-    local selection="${1:-}" normalized token
-    local -a tokens=() selected=()
-    normalized="${selection//,/ }"
-    read -r -a tokens <<<"$normalized" || true
-    if ((${#tokens[@]} == 0)); then
-        printf 'No module numbers were provided.\n' >&2
-        return 1
-    fi
-    for token in "${tokens[@]}"; do
-        if ! module_known "$token"; then
-            printf 'Invalid module number: %s.\n' "$token" >&2
-            return 1
-        fi
-        if [[ " ${selected[*]} " != *" $token "* ]]; then
-            selected+=("$token")
-        fi
-    done
-    printf '%s\n' "${selected[*]}"
-}
-
-# Reorders a selection into dependency order (module registry order).
-order_module_selection() {
-    local selection="${1:-}" item number result=""
-    for item in "${MODULE_SPECS[@]}"; do
-        IFS=: read -r number _ <<<"$item"
-        if [[ " $selection " == *" $number "* ]]; then
-            result+="${result:+ }$number"
-        fi
-    done
-    printf '%s\n' "$result"
-}
->>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 
 log() {
     local level="$1"
     shift
-    local message
+    local message quiet=0
     printf -v message '%s [%s] %s' "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$*"
-    printf '%s\n' "$message"
-    if ((!LOG_TEE)); then
+    if ((SETUP_QUIET)) && [[ "$level" == INFO ]]; then
+        quiet=1
+    fi
+    ((quiet)) || printf '%s\n' "$message"
+    if ((!LOG_TEE)) || ((quiet)); then
         if [[ -d "$(dirname -- "$LOG_FILE")" ]] || mkdir -p -- "$(dirname -- "$LOG_FILE")"; then
             printf '%s\n' "$message" >>"$LOG_FILE"
         else
@@ -121,10 +64,12 @@ die() {
 }
 
 section() {
+    ((SETUP_QUIET)) && return 0
     printf '\n%s==> %s%s\n' "$C_BOLD$C_BLUE" "$*" "$C_RESET"
 }
 
 ui_ok() {
+    ((SETUP_QUIET)) && return 0
     printf '  %s[ OK ]%s %s\n' "$C_GREEN" "$C_RESET" "$*"
 }
 
@@ -137,6 +82,7 @@ ui_fail() {
 }
 
 ui_note() {
+    ((SETUP_QUIET)) && return 0
     printf '  %s[INFO]%s %s\n' "$C_CYAN" "$C_RESET" "$*"
 }
 
@@ -154,8 +100,10 @@ require_non_root() {
 }
 
 init_logging() {
-    mkdir -p -- "$(dirname -- "$LOG_FILE")"
+    mkdir -p -- "$STATE_DIR" "$(dirname -- "$LOG_FILE")"
+    chmod 700 -- "$STATE_DIR" "$(dirname -- "$LOG_FILE")" 2>/dev/null || true
     touch "$LOG_FILE"
+    chmod 600 -- "$LOG_FILE" 2>/dev/null || true
 }
 
 run() {
@@ -201,14 +149,21 @@ secure_boot_enabled() {
 
 internet_available() {
     if command -v curl >/dev/null 2>&1; then
-        curl -fsS --max-time 8 https://archlinux.org/ -o /dev/null
-    elif command -v wget >/dev/null 2>&1; then
-        wget -q --spider --timeout=8 https://archlinux.org/
-    elif command -v timeout >/dev/null 2>&1; then
-        timeout 8 bash -c 'exec 3<>/dev/tcp/archlinux.org/443' >/dev/null 2>&1
-    else
-        return 127
+        if curl -fsS --max-time 8 https://archlinux.org/ -o /dev/null; then
+            return 0
+        fi
     fi
+    if command -v wget >/dev/null 2>&1; then
+        if wget -q --spider --timeout=8 https://archlinux.org/; then
+            return 0
+        fi
+    fi
+    if command -v timeout >/dev/null 2>&1; then
+        if timeout 8 bash -c 'exec 3<>/dev/tcp/archlinux.org/443' >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    return 1
 }
 
 # Return the raw display-controller information from lspci. If lspci is not
@@ -306,59 +261,15 @@ gpu_is_hybrid() {
     ((count > 1))
 }
 
-# Normalise an interactive/CLI module selection into dependency order.
-# Accepts "1 3 5", "01,03,05", ranges such as "03-05", and all/0.
-parse_module_selection() {
-    local input="${1:-}"
-    local token start end number mask=0 result=""
-    local -a tokens=()
-
-    input="${input//,/ }"
-    input="${input//$'\t'/ }"
-    read -r -a tokens <<<"$input"
-    ((${#tokens[@]})) || return 1
-
-    if ((${#tokens[@]} == 1)); then
-        case "${tokens[0],,}" in
-            all|full|everything|0)
-                printf '01 02 03 04 05 06 07 08'
-                return 0
-                ;;
-        esac
-    fi
-
-    for token in "${tokens[@]}"; do
-        if [[ "$token" =~ ^([0-9]{1,2})-([0-9]{1,2})$ ]]; then
-            start=$((10#${BASH_REMATCH[1]}))
-            end=$((10#${BASH_REMATCH[2]}))
-            ((start >= 1 && end <= 8 && start <= end)) || return 1
-            for ((number = start; number <= end; number++)); do
-                mask=$((mask | (1 << (number - 1))))
-            done
-        elif [[ "$token" =~ ^0?([1-8])$ ]]; then
-            number=$((10#${BASH_REMATCH[1]}))
-            mask=$((mask | (1 << (number - 1))))
-        else
-            return 1
-        fi
-    done
-
-    ((mask)) || return 1
-    for number in {1..8}; do
-        if ((mask & (1 << (number - 1)))); then
-            result+="${result:+ }$(printf '%02d' "$number")"
-        fi
-    done
-    printf '%s' "$result"
-}
-
 show_hardware_summary() {
     local cpu ram gpu gpu_vendors gpu_label disk storage free_kib hybrid_note=""
+    local -a gpu_vendor_list=()
     cpu="$(awk -F: '/model name/ {gsub(/^[ \t]+/, "", $2); print $2; exit}' /proc/cpuinfo 2>/dev/null || true)"
     ram="$(awk '/MemTotal/ {printf "%.1f GiB", $2 / 1048576}' /proc/meminfo 2>/dev/null || printf unknown)"
     gpu="$(detect_system_gpu_info)"
     gpu_vendors="$(detect_gpu_vendors "$gpu")"
-    gpu_label="$(gpu_vendor_label $gpu_vendors)"
+    mapfile -t gpu_vendor_list <<<"$gpu_vendors"
+    gpu_label="$(gpu_vendor_label "${gpu_vendor_list[@]}")"
     if gpu_is_hybrid "$gpu_vendors"; then
         hybrid_note=" (hybrid graphics detected)"
     fi
@@ -398,7 +309,19 @@ package_available() {
     local package="$1"
     ((DRY_RUN)) && return 0
     command -v pacman >/dev/null 2>&1 || return 1
-    pacman -Si "$package" >/dev/null 2>&1
+    pacman -Si -- "$package" >/dev/null 2>&1
+}
+
+# One pacman call for the common case where every package is available.
+packages_available_batch() {
+    (($#)) || return 0
+    ((DRY_RUN)) && return 0
+    command -v pacman >/dev/null 2>&1 || return 1
+    pacman -Si -- "$@" >/dev/null 2>&1
+}
+
+package_database_ready() {
+    compgen -G "/var/lib/pacman/sync/*.db" >/dev/null 2>&1
 }
 
 validate_package_name() {
@@ -413,23 +336,34 @@ package_installed() {
 
 install_available_packages() {
     local package
+    local -a valid=()
     local -a available=()
     local -a missing=()
     local -a invalid=()
     for package in "$@"; do
-        if ! validate_package_name "$package"; then
-            invalid+=("$package")
-        elif package_available "$package"; then
-            available+=("$package")
+        if validate_package_name "$package"; then
+            valid+=("$package")
         else
-            missing+=("$package")
+            invalid+=("$package")
         fi
     done
+    if ((${#valid[@]})) && packages_available_batch "${valid[@]}"; then
+        available=("${valid[@]}")
+    else
+        for package in "${valid[@]}"; do
+            if package_available "$package"; then
+                available+=("$package")
+            else
+                missing+=("$package")
+            fi
+        done
+    fi
     if ((${#invalid[@]})); then
         log WARN "Invalid package names (skipped): ${invalid[*]}"
     fi
     if ((${#missing[@]})); then
         log WARN "Unavailable packages (skipped): ${missing[*]}"
+        log WARN "If these packages should exist, refresh the package database with: sudo pacman -Syu"
     fi
     if ((${#available[@]})); then
         log INFO "Installing ${#available[@]} package(s): ${available[*]}"
@@ -467,7 +401,9 @@ record_change() {
     local source="${4:--}"
     ((DRY_RUN)) && return 0
     mkdir -p -- "$(dirname -- "$MANIFEST_FILE")"
+    chmod 700 -- "$(dirname -- "$MANIFEST_FILE")" 2>/dev/null || true
     printf '%s|%s|%s|%s\n' "$kind" "$target" "$detail" "$source" >>"$MANIFEST_FILE"
+    chmod 600 -- "$MANIFEST_FILE" 2>/dev/null || true
 }
 
 file_sha256() {
@@ -494,6 +430,7 @@ backup_file() {
         return 0
     fi
     mkdir -p -- "$BACKUP_DIR/$stamp"
+    chmod 700 -- "$BACKUP_DIR" "$BACKUP_DIR/$stamp" 2>/dev/null || true
     # -n avoids an unexpected password prompt in non-interactive runs; the
     # installer authenticates sudo before any module starts, so this succeeds
     # there without prompting.
@@ -502,6 +439,7 @@ backup_file() {
         return 1
     fi
     sudo chown "$(id -u):$(id -g)" -- "$backup" 2>/dev/null || true
+    sudo chmod 600 -- "$backup" 2>/dev/null || true
     record_change "backup" "$target" "$backup" "-"
     log INFO "Backed up $target to $backup"
 }

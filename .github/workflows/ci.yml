@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   lint-and-test:
@@ -18,3 +22,26 @@ jobs:
 
       - name: Run lint and tests
         run: bash scripts/lint.sh
+
+  arch-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint and dry-run on Arch Linux
+        run: |
+          docker run --rm \
+            -v "$PWD:/host:ro" \
+            archlinux:base-devel \
+            bash -lc '
+              set -euo pipefail
+              pacman -Syu --noconfirm --needed sudo shellcheck curl git >/dev/null
+              useradd -m -s /bin/bash tester
+              echo "tester ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/tester
+              chmod 440 /etc/sudoers.d/tester
+              cp -a /host /work
+              chown -R tester:tester /work
+              su tester -c "cd /work && bash scripts/lint.sh"
+              su tester -c "cd /work && ./install.sh --dry-run --full --no-color"
+            '

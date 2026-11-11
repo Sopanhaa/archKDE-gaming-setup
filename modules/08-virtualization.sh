@@ -12,14 +12,15 @@ fi
 
 install_available_packages "${VIRTUALIZATION_PACKAGES[@]}"
 sudo_run systemctl enable --now libvirtd.service
+target_user="$(id -un)"
 if ((DRY_RUN)) || getent group libvirt >/dev/null 2>&1; then
     if ((DRY_RUN)); then
-        sudo_run usermod -aG libvirt "$USER"
-    elif ! id -nG "$USER" | tr ' ' '\n' | grep -qx libvirt; then
-        sudo_run usermod -aG libvirt "$USER"
-        log INFO "Added $USER to libvirt; sign out and back in for the new group membership."
+        sudo_run usermod -aG libvirt "$target_user"
+    elif ! id -nG "$target_user" | tr ' ' '\n' | grep -qx libvirt; then
+        sudo_run usermod -aG libvirt "$target_user"
+        log INFO "Added $target_user to libvirt; sign out and back in for the new group membership."
     else
-        log INFO "$USER is already a member of libvirt."
+        log INFO "$target_user is already a member of libvirt."
     fi
 else
     log WARN "The libvirt group was not found after package installation; check the libvirt package setup."

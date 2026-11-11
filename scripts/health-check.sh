@@ -19,30 +19,10 @@ warn() {
     ((warnings += 1))
 }
 
-<<<<<<< HEAD
 fail() {
     log ERROR "FAIL: $*"
     ((failures += 1))
 }
-=======
-if [[ -f /etc/arch-release ]]; then
-    pass "Arch Linux detected"
-else
-    warn "This is not an Arch Linux system."
-fi
-
-if command -v pacman >/dev/null 2>&1; then
-    pass "pacman is available"
-else
-    warn "pacman is unavailable."
-fi
-
-if command -v lspci >/dev/null 2>&1; then
-    pass "PCI detection tools are available"
-else
-    warn "Install pciutils for GPU detection."
-fi
->>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 
 module_loaded() {
     local module="$1"
@@ -74,10 +54,11 @@ fi
 section "Graphics drivers"
 GPU_INFO="$(detect_system_gpu_info)"
 GPU_VENDORS="$(detect_gpu_vendors "$GPU_INFO")"
+mapfile -t GPU_VENDOR_LIST <<<"$GPU_VENDORS"
 if [[ "$GPU_VENDORS" == unknown ]]; then
     warn "No supported GPU vendor was detected"
 else
-    pass "Detected GPU vendor(s): $(gpu_vendor_label $GPU_VENDORS)"
+    pass "Detected GPU vendor(s): $(gpu_vendor_label "${GPU_VENDOR_LIST[@]}")"
 fi
 
 HYBRID=0
@@ -199,7 +180,11 @@ else
 fi
 
 section "Desktop, services, and Flatpak"
-for service in NetworkManager bluetooth sddm fstrim.timer libvirtd; do
+services=(NetworkManager bluetooth sddm fstrim.timer)
+if package_installed libvirt; then
+    services+=(libvirtd)
+fi
+for service in "${services[@]}"; do
     if systemctl is-enabled --quiet "$service" 2>/dev/null; then
         pass "$service is enabled"
     else

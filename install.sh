@@ -15,37 +15,16 @@ fi
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$ROOT_DIR/lib/common.sh"
 source "$ROOT_DIR/lib/preflight.sh"
+source "$ROOT_DIR/lib/modules.sh"
 
 DRY_RUN=0
 SELECTION=""
+SELECTION_SET=0
 FULL_INSTALL=0
 CHECK_ONLY=0
 CURRENT_MODULE=""
 CURRENT_MODULE_LABEL=""
 MODULES_COMPLETED=()
-
-ALL_MODULES="01 02 03 04 05 06 07 08"
-MODULE_NUMBERS=(01 02 03 04 05 06 07 08)
-MODULE_TITLES=(
-    "System update and base tools"
-    "Zen kernel (with standard kernel fallback)"
-    "GPU drivers and Vulkan"
-    "KDE Plasma desktop and services"
-    "Gaming tools"
-    "Flatpak and Flathub"
-    "Safe performance setup"
-    "QEMU/KVM virtualization"
-)
-MODULE_DESCRIPTIONS=(
-    "Update Arch and install git, curl, wget, and PCI tools."
-    "Install linux-zen without removing your current kernel."
-    "Auto-detect NVIDIA, AMD, Intel, and hybrid laptop graphics."
-    "Install Plasma, SDDM, NetworkManager, Bluetooth, and PipeWire."
-    "Install Steam, Lutris, Wine, GameMode, MangoHud, and Heroic."
-    "Configure Flatpak and the Flathub application store."
-    "Enable SSD trim and safe power profiles only."
-    "Install QEMU/KVM and Virt-Manager for virtual machines."
-)
 
 usage() {
     cat <<'EOF'
@@ -56,6 +35,9 @@ Options:
   --full          Install all modules without showing the menu.
   --modules LIST  Install selected modules (e.g. 03,05,06 or 3-5).
   --check         Run preflight checks only and exit.
+  --list-modules  Show module numbers, titles, and descriptions.
+  --version       Show the project version.
+  --quiet         Show warnings and errors only (everything is still logged).
   --no-color      Disable coloured terminal output.
   --help, -h      Show this help.
 
@@ -70,6 +52,15 @@ No option ever formats disks, edits bootloader entries, or reboots.
 EOF
 }
 
+project_version() {
+    local version=""
+    if command -v git >/dev/null 2>&1 &&
+        git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        version="$(git -C "$ROOT_DIR" describe --tags --always --dirty 2>/dev/null || true)"
+    fi
+    printf '%s\n' "${version:-dev}"
+}
+
 while (($#)); do
     case "$1" in
         --dry-run) DRY_RUN=1 ;;
@@ -77,10 +68,17 @@ while (($#)); do
         --modules)
             (($# >= 2)) || die "--modules requires a comma-separated module list."
             SELECTION="$2"
+            SELECTION_SET=1
             shift
             ;;
-        --modules=*) SELECTION="${1#*=}" ;;
+        --modules=*)
+            SELECTION="${1#*=}"
+            SELECTION_SET=1
+            ;;
         --check|--preflight) CHECK_ONLY=1 ;;
+        --list-modules) list_modules; exit 0 ;;
+        --version) printf 'archKDE-play %s\n' "$(project_version)"; exit 0 ;;
+        --quiet) SETUP_QUIET=1; export SETUP_QUIET ;;
         --no-color) export NO_COLOR=1 ;;
         --help|-h) usage; exit 0 ;;
         *) die "Unknown option: $1 (use --help)." ;;
@@ -88,30 +86,17 @@ while (($#)); do
     shift
 done
 
-if ((FULL_INSTALL)) && [[ -n "$SELECTION" ]]; then
+if ((FULL_INSTALL && SELECTION_SET)); then
     die "Use either --full or --modules, not both."
+fi
+if ((SELECTION_SET)) && [[ -z "${SELECTION//[[:space:]]/}" ]]; then
+    die "--modules requires at least one module number."
 fi
 
 init_logging
 export LOG_FILE
 export LOG_TEE=1
-export LOG_FILE
 exec > >(tee -a "$LOG_FILE") 2>&1
-<<<<<<< HEAD
-=======
-
-if ((FULL_INSTALL && ${#SELECTION})); then
-    die "--full and --modules cannot be combined; choose one."
-fi
-
-on_error() {
-    local line="$1" exit_code="$2"
-    log ERROR "Installation failed at line $line (exit $exit_code). See $LOG_FILE."
-    exit "$exit_code"
-}
-
-trap 'on_error "$LINENO" "$?"' ERR
->>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 
 on_error() {
     local status="$1"
@@ -119,7 +104,6 @@ on_error() {
     local command="$3"
     trap - ERR
 
-<<<<<<< HEAD
     printf '\n'
     log ERROR "Setup stopped unexpectedly (exit status $status, line $line)."
     log ERROR "Failed command: $command"
@@ -128,6 +112,7 @@ on_error() {
     fi
     log ERROR "No changes were rolled back automatically."
     log ERROR "Read the full log here: $LOG_FILE"
+    log ERROR "Review project-managed changes with: ./scripts/rollback.sh --dry-run"
     log ERROR "Fix the problem above, then rerun the same command. Completed modules are safe to rerun."
     exit "$status"
 }
@@ -141,28 +126,16 @@ on_interrupt() {
     exit 130
 }
 
-trap 'status=$?; on_error "$status" "$LINENO" "$BASH_COMMAND"' ERR
+trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 trap 'on_interrupt INT' INT
 trap 'on_interrupt TERM' TERM
 
-if [[ -n "$SELECTION" ]]; then
+if ((SELECTION_SET)); then
     requested_selection="$SELECTION"
     if ! SELECTION="$(parse_module_selection "$requested_selection")"; then
         die "Invalid module selection: '$requested_selection'. Use numbers from 01 to 08, a range like 03-05, or all."
     fi
 fi
-
-module_title() {
-    local number="$1"
-    local i
-    for i in "${!MODULE_NUMBERS[@]}"; do
-        if [[ "${MODULE_NUMBERS[$i]}" == "$number" ]]; then
-            printf '%s' "${MODULE_TITLES[$i]}"
-            return 0
-        fi
-    done
-    printf 'Module %s' "$number"
-}
 
 show_module_menu() {
     local i
@@ -214,10 +187,8 @@ interactive_select() {
 }
 
 choose_modules() {
-    if [[ -n "$SELECTION" ]]; then
-        if ! SELECTED_MODULES="$(parse_module_selection "$SELECTION")"; then
-            die "Invalid module selection: '$SELECTION'. Use numbers from 01 to 08, a range like 03-05, or all."
-        fi
+    if ((SELECTION_SET)); then
+        SELECTED_MODULES="$SELECTION"
         return 0
     fi
 
@@ -230,46 +201,11 @@ choose_modules() {
         die "Interactive input is unavailable. Use --full, --modules LIST, or --check."
     fi
     interactive_select
-=======
-select_modules() {
-    if [[ -n "$SELECTION" ]]; then
-        SELECTED_MODULES="$(normalize_module_selection "$SELECTION")" ||
-            die "Invalid module selection: $SELECTION."
-        return
-    fi
-
-    if ((FULL_INSTALL)); then
-        SELECTED_MODULES="$(all_module_numbers)"
-        return
-    fi
-
-    [[ -t 0 ]] || die "Interactive input is unavailable; use --full or --modules LIST."
-    printf '\nInstallation modules:\n'
-    printf '  0) Full installation\n'
-    local number description
-    for item in "${MODULE_SPECS[@]}"; do
-        IFS=: read -r number _ description <<<"$item"
-        printf '  %s) %s\n' "$number" "$description"
-    done
-    printf '  q) Quit\n\n'
-    read -r -p "Select full install, custom, or quit [0/c/q]: " choice
-    case "$choice" in
-        0) SELECTED_MODULES="$(all_module_numbers)" ;;
-        c|C)
-            read -r -p "Enter module numbers separated by commas (e.g. 03,05,06): " entered
-            SELECTION="$entered"
-            select_modules
-            ;;
-        q|Q) exit 0 ;;
-        *) die "Invalid selection." ;;
-    esac
->>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 }
 
-section "Arch Extreme Gaming setup"
+section "Arch KDE Gaming Setup"
 log INFO "Log file: $LOG_FILE"
 
-<<<<<<< HEAD
 if ! run_preflight_checks; then
     exit 1
 fi
@@ -289,6 +225,14 @@ fi
 show_selection
 read -r -a selected_module_numbers <<<"$SELECTED_MODULES"
 module_count="${#selected_module_numbers[@]}"
+
+# Fail before changing anything if a configured module has no script.
+declare -A module_paths=()
+for number in "${selected_module_numbers[@]}"; do
+    module_file="$(module_script "$number")" || true
+    [[ -n "$module_file" ]] || die "Module $number is missing from $ROOT_DIR/modules."
+    module_paths["$number"]="$module_file"
+done
 
 if ((DRY_RUN)); then
     log WARN "Dry run enabled; commands are printed but no system changes will be made."
@@ -311,22 +255,13 @@ for number in "${selected_module_numbers[@]}"; do
     CURRENT_MODULE="$number"
     CURRENT_MODULE_LABEL="$(module_title "$number")"
 
-    module_file=""
-    for candidate in "$ROOT_DIR/modules/${number}-"*.sh; do
-        if [[ -f "$candidate" ]]; then
-            module_file="$candidate"
-            break
-        fi
-    done
-    [[ -n "$module_file" ]] || die "Module $number is missing from $ROOT_DIR/modules."
-
     section "Module $module_index of $module_count: $CURRENT_MODULE_LABEL"
     log INFO "Starting module $number ($module_index/$module_count)."
     module_start=$SECONDS
 
     if DRY_RUN="$DRY_RUN" SETUP_MODULE_NUMBER="$number" \
         SETUP_MODULE_INDEX="$module_index" SETUP_MODULE_TOTAL="$module_count" \
-        bash "$module_file"; then
+        bash "${module_paths[$number]}"; then
         elapsed=$((SECONDS - module_start))
         MODULES_COMPLETED+=("$number")
         log INFO "Module $number finished successfully in $(format_duration "$elapsed")."
@@ -343,47 +278,16 @@ CURRENT_MODULE=""
 CURRENT_MODULE_LABEL=""
 
 section "Setup complete"
-printf '  Modules completed: %s\n' "${MODULES_COMPLETED[*]}"
-=======
-SELECTED_MODULES="$(order_module_selection "$SELECTED_MODULES")"
-[[ -n "$SELECTED_MODULES" ]] || die "No modules were selected."
-read -r -a selected_module_numbers <<<"$SELECTED_MODULES"
-
-# Fail before changing anything if a configured module has no script.
-declare -A module_paths=()
-for number in "${selected_module_numbers[@]}"; do
-    module_file="$(find "$ROOT_DIR/modules" -maxdepth 1 -type f -name "${number}-*.sh" -print -quit)"
-    [[ -n "$module_file" ]] || die "Module $number is missing."
-    module_paths["$number"]="$module_file"
-done
-
-printf '\nSelected modules: %s\n' "${SELECTED_MODULES// /, }"
->>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
+printf '  Modules completed: %s\n' "${MODULES_COMPLETED[*]-}"
 if ((DRY_RUN)); then
     printf '  Mode: dry run (nothing was changed)\n'
 else
     printf '  Mode: installation\n'
 fi
-<<<<<<< HEAD
 printf '  Log file: %s\n' "$LOG_FILE"
 if ((!DRY_RUN)); then
     printf '  Tracked configuration changes: %s\n' "$(tracked_change_count)"
     printf '  Review rollback with: ./scripts/rollback.sh --dry-run\n'
-=======
-
-for number in "${selected_module_numbers[@]}"; do
-    module_file="${module_paths[$number]}"
-    log INFO "Running $(basename "$module_file")"
-    DRY_RUN="$DRY_RUN" bash "$module_file"
-done
-
-printf '\nInstallation summary\n'
-printf '  Modules completed: %s\n' "${SELECTED_MODULES// /, }"
-if ((DRY_RUN)); then
-    printf '  Dry run: yes\n'
-else
-    printf '  Dry run: no\n'
->>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 fi
 printf '\nNext steps:\n'
 printf '  - Reboot when convenient so the new kernel and GPU drivers load.\n'

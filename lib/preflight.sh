@@ -50,6 +50,12 @@ preflight_check_system() {
         preflight_fail "sudo is required but was not found."
     fi
 
+    if command -v git >/dev/null 2>&1; then
+        ui_ok "git is available."
+    else
+        preflight_warn "git is not installed; repository updates and developer workflows will need it."
+    fi
+
     if [[ -d /run/archiso ]]; then
         preflight_warn "Arch live environment detected; changes may not persist after reboot."
     fi
@@ -93,10 +99,10 @@ preflight_check_pacman() {
         ui_ok "pacman database is not locked."
     fi
 
-    if [[ -d /var/lib/pacman/sync ]] && compgen -G "/var/lib/pacman/sync/*.db" >/dev/null; then
+    if package_database_ready; then
         ui_ok "pacman package databases are present."
     else
-        preflight_warn "Package databases look empty; run 'sudo pacman -Sy' if package detection fails."
+        preflight_warn "Package databases look empty; run 'sudo pacman -Syu' if package detection fails."
     fi
 
     if multilib_enabled; then
@@ -123,7 +129,9 @@ preflight_check_graphics() {
         return 0
     fi
 
-    ui_ok "Detected GPU vendor(s): $(gpu_vendor_label $vendors)."
+    local -a vendor_list=()
+    mapfile -t vendor_list <<<"$vendors"
+    ui_ok "Detected GPU vendor(s): $(gpu_vendor_label "${vendor_list[@]}")."
     if gpu_is_hybrid "$vendors"; then
         ui_note "Hybrid graphics detected; both vendor drivers will be installed and the integrated GPU stays enabled."
     fi

@@ -1,5 +1,24 @@
 /install.log
 /logs/
+*.log
+
+# IDE and editor metadata
+.idea/
+.vscode/
+*.iml
+
+# Local secrets
+.env
+.env.*
+
+# Merge, backup, and temporary artifacts
 *.swp
 *~
+*.orig
+*.rej
+*.bak
+*.tmp
 
+# OS metadata
+.DS_Store
+Thumbs.db
