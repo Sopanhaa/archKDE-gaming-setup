@@ -20,6 +20,18 @@ Zen kernel.
 
 ## Installation
 
+### Quick install
+
+To clone, install every module, and confirm with a single `y`/`n` prompt:
+
+```bash
+git clone https://github.com/Sopanhaa/archKDE-play.git && cd archKDE-play && ./install.sh --full
+```
+
+The installer shows what it will do and asks `Proceed with installation? [y/N]`. Enter `y` to continue or press Enter to cancel; nothing is changed unless you confirm. Run this as your regular user, not as root.
+
+Prefer to see the commands first? Use `./install.sh --dry-run --full`, which makes no changes and asks nothing.
+
 ### Step 1: Clone the repository
 
 ```bash
