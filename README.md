@@ -1,295 +1,105 @@
 # Arch KDE Gaming Setup
 
-Arch KDE Gaming Setup helps you prepare an Arch Linux computer for gaming. It installs KDE Plasma, graphics drivers, gaming applications, and optional performance tools through a guided installer.
+Sets up an Arch Linux computer for gaming: KDE Plasma, graphics drivers, Steam and friends, and optional performance tweaks.
 
-The installer is careful with your system. It keeps your current kernel as a fallback, asks before making changes, and does not format disks, edit boot entries, or reboot your computer.
+Safe by design — it keeps your current kernel, asks before changing anything, and never formats disks, edits boot entries, or reboots your PC.
 
 ## Requirements
 
-- Arch Linux (64-bit)
-- An internet connection
-- `git` to clone the repository
-- A regular user account with `sudo` access
-- At least 10 GB of free disk space (5 GiB is the hard minimum)
-- The `[multilib]` repository enabled for Steam and 32-bit games
+- Arch Linux (64-bit) with internet access
+- A regular user account with `sudo` (do not run as root)
+- 10 GB free disk space (5 GiB minimum)
+- `[multilib]` enabled for Steam — see [Troubleshooting](#troubleshooting)
+- Secure Boot users must sign NVIDIA/kernel modules themselves; this project does not
 
-If Secure Boot is enabled, NVIDIA and kernel modules must be signed before they
-can load. This project does not sign modules or change Secure Boot settings. It
-also does not edit bootloader entries; check your boot menu after installing the
-Zen kernel.
+## Install
 
-## Installation
-
-### Quick install
-
-To clone, install every module, and confirm with a single `y`/`n` prompt:
+One command:
 
 ```bash
 git clone https://github.com/Sopanhaa/archKDE-play.git && cd archKDE-play && ./install.sh --full
 ```
 
-The installer shows what it will do and asks `Proceed with installation? [y/N]`. Enter `y` to continue or press Enter to cancel; nothing is changed unless you confirm. Run this as your regular user, not as root.
+It prints the plan and asks `Proceed with installation? [y/N]`. Enter `y` to continue; anything else cancels without changes.
 
-Prefer to see the commands first? Use `./install.sh --dry-run --full`, which makes no changes and asks nothing.
+Prefer to look first? Run `./install.sh --dry-run --full` (preview, no changes) or `./install.sh` (pick modules from a menu).
 
-### Step 1: Clone the repository
+## Modules
 
-```bash
-git clone https://github.com/Sopanhaa/archKDE-play.git
-cd archKDE-play
-```
+| # | Module | Installs |
+|---|--------|----------|
+| 01 | System update | Arch updates plus `git`, `curl`, `pciutils` |
+| 02 | Zen kernel | `linux-zen`, keeping your current kernel as fallback |
+| 03 | GPU drivers | Matching drivers and Vulkan for your detected GPU |
+| 04 | KDE Plasma | Plasma, SDDM, NetworkManager, Bluetooth, PipeWire |
+| 05 | Gaming tools | Steam, Lutris, Wine, GameMode, MangoHud, Heroic |
+| 06 | Flatpak | Flatpak with the Flathub store |
+| 07 | Performance | SSD trim and safe power profiles, no risky tweaks |
+| 08 | Virtualization | QEMU/KVM and Virt-Manager |
 
-### Step 2: Check the system
-
-```bash
-./install.sh --check
-```
-
-This runs the preflight checks only. It checks your Arch Linux system, internet connection, disk space, package database, multilib, graphics hardware, and bootloader. It makes no changes and writes no log or state files.
-
-### Step 3: Preview installation
+Install all modules with `--full`, or pick some:
 
 ```bash
-./install.sh --dry-run --full
+./install.sh --modules 03,05,06    # specific modules
+./install.sh --modules 03-05       # a range
 ```
 
-A dry run prints the commands for every module without running them. It does not install packages, change services, or write logs or state files. Use it to see what will be installed.
+`--full` and `--modules` cannot be combined.
 
-### Step 4: Start installation
+## Common commands
 
-```bash
-./install.sh
-```
+| Task | Command |
+|------|---------|
+| Check the system (no changes) | `./install.sh --check` |
+| Preview everything (no changes) | `./install.sh --dry-run --full` |
+| Install all modules | `./install.sh --full` |
+| Check system health | `./scripts/health-check.sh` |
+| Update system and this project | `./scripts/update.sh` |
+| Preview updates | `./scripts/update.sh --dry-run` |
+| Skip third-party AUR updates | `./scripts/update.sh --skip-aur` |
+| Undo project config files | `./scripts/rollback.sh` |
+| Show version | `./install.sh --version` |
+| List modules | `./install.sh --list-modules` |
 
-The installer shows a menu of modules. Choose all modules or only the ones you need. It displays the final plan and asks for confirmation before installing anything.
+AUR helpers run third-party code — use `--skip-aur` if you prefer to avoid that.
 
-## Available Modules
+## GPU support
 
-1. **System update and base tools** – Updates Arch and installs basic tools such as `git`, `curl`, and `pciutils`.
-2. **Zen kernel** – Installs `linux-zen` and keeps your current kernel as a fallback.
-3. **GPU drivers and Vulkan** – Detects your graphics hardware and installs the matching drivers and Vulkan support.
-4. **KDE Plasma desktop and services** – Installs Plasma, SDDM, NetworkManager, Bluetooth, and PipeWire.
-5. **Gaming tools** – Installs Steam, Lutris, Wine, GameMode, MangoHud, and Heroic when available.
-6. **Flatpak and Flathub** – Installs Flatpak and configures the Flathub application store.
-7. **Safe performance setup** – Enables SSD trim and safe power profiles without risky tweaks.
-8. **QEMU/KVM virtualization** – Installs QEMU/KVM and Virt-Manager for virtual machines.
+The GPU module detects your hardware automatically.
 
-`--full` and `--modules` cannot be used together.
+- **NVIDIA** — `nvidia-open-dkms` (or `nvidia-dkms` as fallback) and utilities; 32-bit libraries need multilib.
+- **AMD** — Mesa, `vulkan-radeon`, and video decode support.
+- **Intel** — `vulkan-intel` and `intel-media-driver`.
+- **Hybrid laptops** — drivers for each vendor; use per-app GPU options or `prime-run`.
 
-## Usage
-
-Interactive installation:
-
-```bash
-./install.sh
-```
-
-Full installation:
-
-```bash
-./install.sh --full
-```
-
-Install selected modules:
-
-```bash
-./install.sh --modules 03,05,06
-```
-
-Module ranges and short numbers also work:
-
-```bash
-./install.sh --modules 03-05
-```
-
-Dry-run mode:
-
-```bash
-./install.sh --dry-run --full
-```
-
-Check system health after installation:
-
-```bash
-./scripts/health-check.sh
-```
-
-Update packages, Flatpak applications, AUR packages, and this project:
-
-```bash
-./scripts/update.sh
-```
-
-Preview updates without changing anything:
-
-```bash
-./scripts/update.sh --dry-run
-```
-
-Skip third-party AUR updates:
-
-```bash
-./scripts/update.sh --skip-aur
-```
-
-AUR helpers run code from third-party packages. Use `--skip-aur` if you do not
-want to update AUR packages.
-
-Show the project version:
-
-```bash
-./install.sh --version
-```
-
-List module numbers and descriptions:
-
-```bash
-./install.sh --list-modules
-```
-
-Reduce progress output while still keeping warnings, errors, and the full log:
-
-```bash
-./install.sh --quiet --full
-```
-
-Disable coloured terminal output:
-
-```bash
-./install.sh --no-color --check
-```
-
-The helper scripts `drivers.sh`, `Zen-kernel.sh`, `services.sh`, `proton+tool.sh`, and `performance.sh` run a single module and pass their options to `install.sh`.
-
-Normal installations and health checks write logs to `~/.local/state/archkde-play/logs/`. `--check` and `--dry-run` do not write logs. Existing installs that used the old project name keep their previous state directory.
-
-## GPU Support
-
-The GPU module detects your hardware automatically from PCI information.
-
-- **NVIDIA** – Installs `nvidia-open-dkms` when available, or `nvidia-dkms` as a fallback, with NVIDIA utilities and 32-bit libraries when multilib is enabled.
-- **AMD** – Installs Mesa, `vulkan-radeon`, and video decode support.
-- **Intel** – Installs `vulkan-intel` and `intel-media-driver`.
-- **Hybrid GPU laptops** – Installs drivers for every detected vendor and keeps the integrated GPU enabled. Use your desktop's per-application GPU option or launch a program with `prime-run`.
-
-The installer does not force PRIME settings, change GPU power settings, or disable the integrated GPU.
-
-## Project Structure
-
-```text
-archKDE-play/
-├── install.sh
-├── lib/
-│   ├── common.sh
-│   ├── modules.sh
-│   └── preflight.sh
-├── config/
-├── modules/
-├── scripts/
-├── tests/
-├── CONTRIBUTING.md
-├── SECURITY.md
-├── CODE_OF_CONDUCT.md
-├── drivers.sh
-├── performance.sh
-├── proton+tool.sh
-├── services.sh
-├── update.sh
-└── Zen-kernel.sh
-```
+It never forces PRIME settings, changes GPU power settings, or disables the integrated GPU.
 
 ## Troubleshooting
 
-**Installation fails**
+| Problem | Fix |
+|---------|-----|
+| Install fails | Read the log in `~/.local/state/archkde-play/logs/`, fix the issue, rerun the failed module e.g. `./install.sh --modules 03`. Completed modules are safe to rerun; nothing is rolled back automatically. |
+| NVIDIA driver issues | Sign modules if Secure Boot is on, check with `dkms status`. Pre-Turing GPUs need `nvidia-dkms`, not `nvidia-open-dkms`. |
+| Steam not working | Enable `[multilib]` in `/etc/pacman.conf`, run `sudo pacman -Syu`, then `./install.sh --modules 05`. |
+| Vulkan issues | `sudo pacman -S vulkan-tools && vulkaninfo --summary`. Ensure `vulkan-radeon`, `vulkan-intel`, or `nvidia-utils` is installed. |
+| Packages skipped | Refresh first: `sudo pacman -Syu`, then rerun the module. |
 
-Read the last lines of the log in `~/.local/state/archkde-play/logs/` (or the old `arch-extreme-gaming` directory for existing installs), fix the reported problem, and rerun the suggested command, for example:
+`./scripts/rollback.sh --dry-run` previews removing config files this project created. Rollback does not remove packages or undo driver changes.
 
-```bash
-./install.sh --modules 03
-```
+## Development
 
-Completed modules are safe to rerun. The installer does not roll back changes automatically.
-
-**NVIDIA driver issues**
-
-If Secure Boot is enabled, make sure your NVIDIA kernel modules are signed. Check the driver status with:
-
-```bash
-dkms status
-```
-
-On NVIDIA GPUs older than Turing, use `nvidia-dkms` instead of `nvidia-open-dkms`.
-
-**Steam not working**
-
-Enable `[multilib]`, refresh the package database, and rerun the gaming module:
-
-```bash
-sudo pacman -Syu
-./install.sh --modules 05
-```
-
-**Vulkan issues**
-
-Install the Vulkan tools and check that a device is detected:
-
-```bash
-sudo pacman -S vulkan-tools
-vulkaninfo --summary
-```
-
-Make sure the Vulkan package for your GPU is installed: `vulkan-radeon`, `vulkan-intel`, or `nvidia-utils`.
-
-**Packages are skipped as unavailable**
-
-Refresh the package database and system packages, then retry:
-
-```bash
-sudo pacman -Syu
-./install.sh --modules 01
-```
-
-**Missing multilib repository**
-
-Open `/etc/pacman.conf`, uncomment the `[multilib]` section, then refresh the package database:
-
-```bash
-sudo pacman -Syu
-```
-
-**Undo project configuration**
-
-Preview and remove only the configuration files created by this project:
-
-```bash
-./scripts/rollback.sh --dry-run
-./scripts/rollback.sh
-```
-
-Rollback does not remove packages, undo upgrades, or revert driver changes.
-
-## Development checks
-
-Run these checks before opening a pull request:
+Before opening a pull request, run:
 
 ```bash
 bash scripts/lint.sh
 bash tests/test-install.sh
-```
-
-You can also verify a full installer run without changing your system:
-
-```bash
 ./install.sh --dry-run --full
 ```
 
 ## Contributing
 
-See `CONTRIBUTING.md` for development setup, code style, and pull request
-guidance. Report security problems privately using `SECURITY.md`. Participation
-is covered by `CODE_OF_CONDUCT.md`.
+See `CONTRIBUTING.md` for setup and style. Report security issues privately via `SECURITY.md`. Participation follows `CODE_OF_CONDUCT.md`.
 
 ## License
 
 [MIT](./LICENSE)
-
