@@ -33,7 +33,7 @@ cd archKDE-play
 ./install.sh --check
 ```
 
-This runs the preflight checks only. It checks your Arch Linux system, internet connection, disk space, package database, multilib, graphics hardware, and bootloader. It makes no changes.
+This runs the preflight checks only. It checks your Arch Linux system, internet connection, disk space, package database, multilib, graphics hardware, and bootloader. It makes no changes and writes no log or state files.
 
 ### Step 3: Preview installation
 
@@ -41,7 +41,7 @@ This runs the preflight checks only. It checks your Arch Linux system, internet 
 ./install.sh --dry-run --full
 ```
 
-A dry run prints the commands for every module without running them. Use it to see what will be installed.
+A dry run prints the commands for every module without running them. It does not install packages, change services, or write logs or state files. Use it to see what will be installed.
 
 ### Step 4: Start installation
 
@@ -135,15 +135,21 @@ List module numbers and descriptions:
 ./install.sh --list-modules
 ```
 
-Reduce progress output while still keeping warnings, errors, and the log:
+Reduce progress output while still keeping warnings, errors, and the full log:
 
 ```bash
 ./install.sh --quiet --full
 ```
 
+Disable coloured terminal output:
+
+```bash
+./install.sh --no-color --check
+```
+
 The helper scripts `drivers.sh`, `Zen-kernel.sh`, `services.sh`, `proton+tool.sh`, and `performance.sh` run a single module and pass their options to `install.sh`.
 
-Logs are written to `~/.local/state/archkde-play/logs/`. Existing installs that used the old project name keep their previous state directory.
+Normal installations and health checks write logs to `~/.local/state/archkde-play/logs/`. `--check` and `--dry-run` do not write logs. Existing installs that used the old project name keep their previous state directory.
 
 ## GPU Support
 
@@ -169,7 +175,13 @@ archKDE-play/
 ├── modules/
 ├── scripts/
 ├── tests/
-├── .github/workflows/ci.yml
+├── CONTRIBUTING.md
+├── SECURITY.md
+├── CODE_OF_CONDUCT.md
+├── .github/
+│   ├── ISSUE_TEMPLATE/
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   └── workflows/ci.yml
 ├── drivers.sh
 ├── performance.sh
 ├── proton+tool.sh
@@ -247,6 +259,17 @@ Preview and remove only the configuration files created by this project:
 ```
 
 Rollback does not remove packages, undo upgrades, or revert driver changes.
+
+## Development checks
+
+Run the same basic checks used by CI:
+
+```bash
+bash scripts/lint.sh
+bash tests/test-install.sh
+```
+
+GitHub Actions runs the linter and a full dry-run inside a pinned Arch Linux container.
 
 ## Contributing
 
