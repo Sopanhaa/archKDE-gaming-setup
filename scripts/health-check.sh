@@ -19,10 +19,30 @@ warn() {
     ((warnings += 1))
 }
 
+<<<<<<< HEAD
 fail() {
     log ERROR "FAIL: $*"
     ((failures += 1))
 }
+=======
+if [[ -f /etc/arch-release ]]; then
+    pass "Arch Linux detected"
+else
+    warn "This is not an Arch Linux system."
+fi
+
+if command -v pacman >/dev/null 2>&1; then
+    pass "pacman is available"
+else
+    warn "pacman is unavailable."
+fi
+
+if command -v lspci >/dev/null 2>&1; then
+    pass "PCI detection tools are available"
+else
+    warn "Install pciutils for GPU detection."
+fi
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 
 module_loaded() {
     local module="$1"

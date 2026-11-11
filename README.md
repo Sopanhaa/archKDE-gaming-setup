@@ -1,4 +1,4 @@
-# Arch Extreme Gaming
+# Arch KDE Gaming Setup
 
 An interactive, beginner-friendly setup for Arch Linux gaming PCs. It installs KDE Plasma, graphics drivers, gaming tools, and optional virtualization while keeping existing kernels and configuration safe.
 
@@ -17,11 +17,18 @@ This tool does not install Arch Linux, format disks, edit bootloader entries, or
 ## Install
 
 ```bash
+<<<<<<< HEAD
 git clone https://github.com/sopanha-lay/arch-extreme-gaming.git
 cd arch-extreme-gaming
 ./install.sh --check          # Run safety checks only
 ./install.sh --dry-run --full # Preview everything
 ./install.sh                  # Interactive module selection
+=======
+git clone https://github.com/Sopanhaa/archKDE-gaming-setup.git
+cd archKDE-gaming-setup
+./install.sh --dry-run --full  # Preview first
+./install.sh                   # Choose what to install
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 ```
 
 ### Interactive selection
@@ -59,15 +66,21 @@ Invalid input is explained and you are asked again. Before anything is installed
 ### Command-line options
 
 ```bash
+<<<<<<< HEAD
 ./install.sh --full             # Install everything, no menu
+=======
+./install.sh --full             # Install all modules
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 ./install.sh --modules 03,05,06 # Choose GPU, gaming, and Flatpak
 ./install.sh --check            # Preflight checks only
 ./install.sh --dry-run          # Print commands without running them
 ./install.sh --no-color         # Plain output for logs or screen readers
 ./scripts/health-check.sh       # Check your setup
 ./scripts/update.sh             # Update packages and apps
+./scripts/update.sh --dry-run   # Preview updates only
 ```
 
+<<<<<<< HEAD
 ## Safety checks before installation
 
 The installer runs these checks first:
@@ -101,6 +114,25 @@ prime-run <program>
 ```
 
 For Steam games, set the launch option to `prime-run %command%`.
+=======
+`--full` and `--modules` are mutually exclusive. The installer validates the module list and confirms that every selected module script exists before changing anything.
+
+## Convenience scripts
+
+These wrappers forward their arguments to `install.sh` (or the relevant script):
+
+| Script | Purpose |
+| --- | --- |
+| `drivers.sh` | GPU drivers and Vulkan (`03`) |
+| `Zen-kernel.sh` | Zen kernel and fallback kernel (`02`) |
+| `services.sh` | KDE Plasma and system services (`04`) |
+| `proton+tool.sh` | Gaming tools (`05`) |
+| `performance.sh` | Conservative performance setup (`07`) |
+| `update.sh` | Update packages, Flatpak apps, AUR packages, and this repo |
+| `scripts/health-check.sh` | Read-only setup verification |
+| `scripts/rollback.sh` | Remove the unchanged project-managed NVIDIA config |
+| `scripts/lint.sh` | Syntax check, ShellCheck, and the test suite |
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 
 ## What gets installed
 
@@ -111,8 +143,11 @@ For Steam games, set the launch option to `prime-run %command%`.
 - Flatpak and Flathub
 - Optional SSD maintenance and QEMU/KVM virtualization
 
+On hybrid laptops, drivers are installed for every detected vendor (for example NVIDIA + Intel), with integrated graphics left enabled.
+
 Gaming performance depends on your hardware, drivers, and game settings. No risky performance tweaks are applied.
 
+<<<<<<< HEAD
 ## Progress, errors, and logs
 
 Each module prints a numbered progress heading, the packages it plans to install, and a completion time. If something fails, the installer:
@@ -163,6 +198,19 @@ The installer is intentionally conservative:
 
 Rollback only removes configuration files that this project created, recorded in its manifest, and that are still unchanged. It does **not** remove packages, undo package upgrades or downgrades, restore previous service states, revert GPU driver changes, or modify boot entries. Backups made when an existing conflicting configuration is found are kept in `~/.local/state/arch-extreme-gaming/backups/`.
 
+=======
+## Project layout
+
+```text
+install.sh          Module selection and execution
+lib/common.sh       Shared helpers, module registry, GPU detection, logging
+config/             Package lists and managed configuration templates
+modules/            One script per setup step (01-08)
+scripts/            Health check, rollback, update, and lint
+tests/              Shell test suite (runs without installing packages)
+```
+
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 ## Important
 
 - Enable multilib yourself to install Steam and 32-bit drivers.
@@ -179,16 +227,21 @@ Rollback only removes configuration files that this project created, recorded in
 - **GameMode daemon is not running:** This is normal; `gamemoded` can start on demand. Use `gamemoderun %command%` as a Steam launch option.
 - **Health check warnings:** Only `[FAIL]` items are blocking. `[WARN]` items are optional tools or services that may not be needed on every system.
 - **Zen kernel is missing from the boot menu:** Update your bootloader configuration using its own instructions.
+<<<<<<< HEAD
 - **Installation stopped:** Read the last lines of the log, fix the reported problem, then rerun the suggested `./install.sh --modules NN` command.
 - **Need to undo project configuration:** Run `./scripts/rollback.sh --dry-run` first. Rollback does not undo package changes.
+=======
+- **Not sure what happened:** Review the latest log in `${XDG_STATE_HOME:-$HOME/.local/state}/arch-extreme-gaming/logs/`.
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 
 ## Tests
 
 ```bash
 bash tests/test-install.sh
+bash scripts/lint.sh   # Adds syntax checks and ShellCheck when installed
 ```
 
-Tests do not install packages. Try the setup in an Arch virtual machine before using it on your main computer.
+Tests do not install packages. Try the setup in an Arch virtual machine before using it on your main computer. GitHub Actions runs the same lint and test steps on every push and pull request.
 
 ## License
 

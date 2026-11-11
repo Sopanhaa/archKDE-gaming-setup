@@ -95,7 +95,23 @@ fi
 init_logging
 export LOG_FILE
 export LOG_TEE=1
+export LOG_FILE
 exec > >(tee -a "$LOG_FILE") 2>&1
+<<<<<<< HEAD
+=======
+
+if ((FULL_INSTALL && ${#SELECTION})); then
+    die "--full and --modules cannot be combined; choose one."
+fi
+
+on_error() {
+    local line="$1" exit_code="$2"
+    log ERROR "Installation failed at line $line (exit $exit_code). See $LOG_FILE."
+    exit "$exit_code"
+}
+
+trap 'on_error "$LINENO" "$?"' ERR
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 
 on_error() {
     local status="$1"
@@ -103,6 +119,7 @@ on_error() {
     local command="$3"
     trap - ERR
 
+<<<<<<< HEAD
     printf '\n'
     log ERROR "Setup stopped unexpectedly (exit status $status, line $line)."
     log ERROR "Failed command: $command"
@@ -213,11 +230,46 @@ choose_modules() {
         die "Interactive input is unavailable. Use --full, --modules LIST, or --check."
     fi
     interactive_select
+=======
+select_modules() {
+    if [[ -n "$SELECTION" ]]; then
+        SELECTED_MODULES="$(normalize_module_selection "$SELECTION")" ||
+            die "Invalid module selection: $SELECTION."
+        return
+    fi
+
+    if ((FULL_INSTALL)); then
+        SELECTED_MODULES="$(all_module_numbers)"
+        return
+    fi
+
+    [[ -t 0 ]] || die "Interactive input is unavailable; use --full or --modules LIST."
+    printf '\nInstallation modules:\n'
+    printf '  0) Full installation\n'
+    local number description
+    for item in "${MODULE_SPECS[@]}"; do
+        IFS=: read -r number _ description <<<"$item"
+        printf '  %s) %s\n' "$number" "$description"
+    done
+    printf '  q) Quit\n\n'
+    read -r -p "Select full install, custom, or quit [0/c/q]: " choice
+    case "$choice" in
+        0) SELECTED_MODULES="$(all_module_numbers)" ;;
+        c|C)
+            read -r -p "Enter module numbers separated by commas (e.g. 03,05,06): " entered
+            SELECTION="$entered"
+            select_modules
+            ;;
+        q|Q) exit 0 ;;
+        *) die "Invalid selection." ;;
+    esac
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 }
 
 section "Arch Extreme Gaming setup"
 log INFO "Log file: $LOG_FILE"
 
+<<<<<<< HEAD
 if ! run_preflight_checks; then
     exit 1
 fi
@@ -292,15 +344,46 @@ CURRENT_MODULE_LABEL=""
 
 section "Setup complete"
 printf '  Modules completed: %s\n' "${MODULES_COMPLETED[*]}"
+=======
+SELECTED_MODULES="$(order_module_selection "$SELECTED_MODULES")"
+[[ -n "$SELECTED_MODULES" ]] || die "No modules were selected."
+read -r -a selected_module_numbers <<<"$SELECTED_MODULES"
+
+# Fail before changing anything if a configured module has no script.
+declare -A module_paths=()
+for number in "${selected_module_numbers[@]}"; do
+    module_file="$(find "$ROOT_DIR/modules" -maxdepth 1 -type f -name "${number}-*.sh" -print -quit)"
+    [[ -n "$module_file" ]] || die "Module $number is missing."
+    module_paths["$number"]="$module_file"
+done
+
+printf '\nSelected modules: %s\n' "${SELECTED_MODULES// /, }"
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 if ((DRY_RUN)); then
     printf '  Mode: dry run (nothing was changed)\n'
 else
     printf '  Mode: installation\n'
 fi
+<<<<<<< HEAD
 printf '  Log file: %s\n' "$LOG_FILE"
 if ((!DRY_RUN)); then
     printf '  Tracked configuration changes: %s\n' "$(tracked_change_count)"
     printf '  Review rollback with: ./scripts/rollback.sh --dry-run\n'
+=======
+
+for number in "${selected_module_numbers[@]}"; do
+    module_file="${module_paths[$number]}"
+    log INFO "Running $(basename "$module_file")"
+    DRY_RUN="$DRY_RUN" bash "$module_file"
+done
+
+printf '\nInstallation summary\n'
+printf '  Modules completed: %s\n' "${SELECTED_MODULES// /, }"
+if ((DRY_RUN)); then
+    printf '  Dry run: yes\n'
+else
+    printf '  Dry run: no\n'
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 fi
 printf '\nNext steps:\n'
 printf '  - Reboot when convenient so the new kernel and GPU drivers load.\n'

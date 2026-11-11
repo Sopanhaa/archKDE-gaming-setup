@@ -24,8 +24,31 @@ assert() {
     fi
 }
 
+assert_failure() {
+    local description="$1"
+    shift
+    tests_run=$((tests_run + 1))
+    if "$@" >/dev/null 2>&1; then
+        printf 'not ok - %s\n' "$description"
+        tests_failed=$((tests_failed + 1))
+    else
+        printf 'ok - %s\n' "$description"
+    fi
+}
+
 contains_text() {
     [[ "$1" == *"$2"* ]]
+}
+
+equals_text() {
+    [[ "$1" == "$2" ]]
+}
+
+all_modules_have_scripts() {
+    local number
+    for number in $(all_module_numbers); do
+        compgen -G "$ROOT_DIR/modules/${number}-*.sh" >/dev/null || return 1
+    done
 }
 
 valid_package_names() {
@@ -42,9 +65,13 @@ valid_package_names() {
     done
 }
 
+<<<<<<< HEAD
 assert "detects NVIDIA and Intel hybrid graphics" contains_text "$(detect_gpu_vendors $'01:00.0 VGA compatible controller: NVIDIA Corporation (10de:25a9)\n00:02.0 VGA compatible controller: Intel Corporation (8086:46a6)')" "nvidia intel"
 assert "detects AMD graphics" contains_text "$(detect_gpu_vendors '03:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] (1002:73ff)')" "amd"
 assert "detects all supported vendors" contains_text "$(detect_gpu_vendors $'NVIDIA (10de:2504)\nAMD (1002:73ff)\nIntel (8086:46a6)')" "nvidia amd intel"
+=======
+assert "detects NVIDIA and Intel hybrid graphics" equals_text "$(detect_gpu_vendors $'01:00.0 VGA compatible controller: NVIDIA Corporation (10de:25a9)\n00:02.0 VGA compatible controller: Intel Corporation (8086:46a6)')" $'nvidia\nintel'
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 assert "reports unknown for unsupported display hardware" contains_text "$(detect_gpu_vendors 'Virtual display adapter')" "unknown"
 assert "recognizes hybrid graphics" gpu_is_hybrid "nvidia intel"
 assert "finds a vendor in a hybrid vendor list" gpu_has_vendor nvidia "intel nvidia"
@@ -72,6 +99,14 @@ else
 fi
 
 assert "package configuration contains valid package identifiers" valid_package_names
+
+assert "lists every module in dependency order" equals_text "$(all_module_numbers)" "01 02 03 04 05 06 07 08"
+assert "normalizes and deduplicates module selection" equals_text "$(normalize_module_selection '05,03,03,01')" "05 03 01"
+assert "orders module selection by dependency order" equals_text "$(order_module_selection '05 03 01')" "01 03 05"
+assert "accepts space-separated module selections" equals_text "$(normalize_module_selection '03 05')" "03 05"
+assert_failure "rejects unknown module numbers" normalize_module_selection '09'
+assert_failure "rejects empty module selections" normalize_module_selection ''
+assert "every registered module has a script" all_modules_have_scripts
 
 pacman() {
     [[ "$*" == "-Si known-package" ]]

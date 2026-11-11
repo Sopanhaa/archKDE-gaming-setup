@@ -8,6 +8,7 @@ BACKUP_DIR="${BACKUP_DIR:-$STATE_DIR/backups}"
 DRY_RUN="${DRY_RUN:-0}"
 LOG_TEE="${LOG_TEE:-0}"
 
+<<<<<<< HEAD
 # Colour is only used on a real terminal. install.sh sets SETUP_FORCE_COLOR
 # before it redirects output through tee so interactive output stays readable.
 if [[ -z "${NO_COLOR:-}" && "${TERM:-dumb}" != "dumb" ]] &&
@@ -30,6 +31,73 @@ else
     C_BLUE=""
     C_CYAN=""
 fi
+=======
+# Module registry shared by install.sh, tests, and standalone scripts.
+# Format: <number>:<slug>:<description> in dependency order.
+MODULE_SPECS=(
+    "01:system:Base system updates and tools"
+    "02:kernel:Zen kernel and fallback kernel"
+    "03:gpu:GPU drivers and Vulkan"
+    "04:kde:KDE Plasma, display manager, network, audio"
+    "05:gaming:Gaming tools"
+    "06:flatpak:Flatpak and Flathub"
+    "07:performance:Conservative performance setup"
+    "08:virtualization:QEMU/KVM and Virt-Manager"
+)
+
+all_module_numbers() {
+    local item number result=""
+    for item in "${MODULE_SPECS[@]}"; do
+        IFS=: read -r number _ <<<"$item"
+        result+="${result:+ }$number"
+    done
+    printf '%s\n' "$result"
+}
+
+module_known() {
+    local candidate="$1" item number
+    for item in "${MODULE_SPECS[@]}"; do
+        IFS=: read -r number _ <<<"$item"
+        [[ "$number" == "$candidate" ]] && return 0
+    done
+    return 1
+}
+
+# Accepts "03,05,06" (or space-separated) and prints a deduplicated list in
+# the order the user supplied. Fails for empty or unknown module numbers.
+normalize_module_selection() {
+    local selection="${1:-}" normalized token
+    local -a tokens=() selected=()
+    normalized="${selection//,/ }"
+    read -r -a tokens <<<"$normalized" || true
+    if ((${#tokens[@]} == 0)); then
+        printf 'No module numbers were provided.\n' >&2
+        return 1
+    fi
+    for token in "${tokens[@]}"; do
+        if ! module_known "$token"; then
+            printf 'Invalid module number: %s.\n' "$token" >&2
+            return 1
+        fi
+        if [[ " ${selected[*]} " != *" $token "* ]]; then
+            selected+=("$token")
+        fi
+    done
+    printf '%s\n' "${selected[*]}"
+}
+
+# Reorders a selection into dependency order (module registry order).
+order_module_selection() {
+    local selection="${1:-}" item number result=""
+    for item in "${MODULE_SPECS[@]}"; do
+        IFS=: read -r number _ <<<"$item"
+        if [[ " $selection " == *" $number "* ]]; then
+            result+="${result:+ }$number"
+        fi
+    done
+    printf '%s\n' "$result"
+}
+>>>>>>> 6e9c759 (fix: improve hybrid GPU detection and driver handling)
 
 log() {
     local level="$1"
@@ -199,7 +267,7 @@ detect_gpu_vendors() {
     done <<<"$info"
 
     if ((${#found[@]})); then
-        printf '%s\n' "${found[*]}"
+        printf '%s\n' "${found[@]}"
     else
         printf 'unknown\n'
     fi
